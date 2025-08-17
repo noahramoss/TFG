@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from rest_framework.authtoken.views import obtain_auth_token
 from movimientos.views import CategoriaViewSet, MovimientoViewSet
 
 router = DefaultRouter()
@@ -12,5 +13,6 @@ urlpatterns = [
     path('api/', include(router.urls)),
     # Permite login/logout en la API browsable
     path('api-auth/', include('rest_framework.urls')),
+    path('api-token-auth/', obtain_auth_token),
 ]
 
