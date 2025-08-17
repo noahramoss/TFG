@@ -1,6 +1,14 @@
 // src/pages/CategoryList.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  Container, Paper, Typography, Alert, Stack, TextField, Select, MenuItem,
+  IconButton, Button, List, ListItem, ListItemText
+} from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
 
 export default function CategoryList() {
   const [categories, setCategories] = useState([]);
@@ -8,21 +16,12 @@ export default function CategoryList() {
   const [tipo, setTipo] = useState('ingreso');
   const [error, setError] = useState('');
 
-  // edición inline
   const [editId, setEditId] = useState(null);
   const [editNombre, setEditNombre] = useState('');
   const [editTipo, setEditTipo] = useState('ingreso');
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  // 👇 Auto-ocultar error a los 4s
-  useEffect(() => {
-    if (!error) return;
-    const t = setTimeout(() => setError(''), 4000);
-    return () => clearTimeout(t); // limpia si cambia el error o desmonta
-  }, [error]);
+  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => { if (!error) return; const t=setTimeout(()=>setError(''),4000); return ()=>clearTimeout(t); }, [error]);
 
   const fetchCategories = () => {
     axios.get('/api/categorias/')
@@ -33,11 +32,7 @@ export default function CategoryList() {
   const handleCreate = e => {
     e.preventDefault();
     axios.post('/api/categorias/', { nombre, tipo })
-      .then(() => {
-        setNombre('');
-        setTipo('ingreso');
-        fetchCategories();
-      })
+      .then(() => { setNombre(''); setTipo('ingreso'); fetchCategories(); })
       .catch(() => setError('Error al crear categoría'));
   };
 
@@ -46,23 +41,12 @@ export default function CategoryList() {
     setEditNombre(cat.nombre);
     setEditTipo(cat.tipo);
   };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setEditNombre('');
-    setEditTipo('ingreso');
-  };
+  const cancelEdit = () => { setEditId(null); setEditNombre(''); setEditTipo('ingreso'); };
 
   const saveEdit = (id) => {
     axios.patch(`/api/categorias/${id}/`, { nombre: editNombre, tipo: editTipo })
-      .then(() => {
-        cancelEdit();
-        fetchCategories();
-      })
-      .catch(err => {
-        const msg = err.response?.data?.detail || 'Error al editar categoría';
-        setError(msg);
-      });
+      .then(() => { cancelEdit(); fetchCategories(); })
+      .catch(err => setError(err.response?.data?.detail || 'Error al editar categoría'));
   };
 
   const handleDelete = (id) => {
@@ -70,91 +54,91 @@ export default function CategoryList() {
     axios.delete(`/api/categorias/${id}/`)
       .then(() => fetchCategories())
       .catch(err => {
-        const msg =
-          err.response?.data?.detail ||
-          err.response?.data?.non_field_errors?.[0] ||
-          err.response?.data?.[0] ||
-          'No se pudo eliminar (puede tener movimientos).';
+        const msg = err.response?.data?.detail
+          || err.response?.data?.non_field_errors?.[0]
+          || err.response?.data?.[0]
+          || 'No se pudo eliminar (puede tener movimientos).';
         setError(msg);
       });
   };
 
   return (
-    <div className="max-w-3xl mx-auto mt-8">
-      <h1 className="text-2xl mb-4">Categorías</h1>
-      {error && (
-        <p className="text-red-600 mb-2" role="alert">{error}</p>
-      )}
+    <Container sx={{ mt: 3 }}>
+      <Typography variant="h4" sx={{ mb: 2 }}>Categorías</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <ul className="mb-6" style={{ listStyle: 'none', padding: 0 }}>
-        {categories.map(cat => (
-          <li
-            key={cat.id}
-            className="p-2 border-b"
-            style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}
-          >
-            {editId === cat.id ? (
-              <>
-                <input
-                  type="text"
-                  value={editNombre}
-                  onChange={e => setEditNombre(e.target.value)}
-                  className="border p-1 rounded"
-                  style={{ flex: 1 }}
-                  required
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <List dense>
+          {categories.map(cat => (
+            <ListItem
+              key={cat.id}
+              secondaryAction={
+                editId === cat.id ? (
+                  <Stack direction="row" spacing={1}>
+                    <IconButton edge="end" aria-label="save" onClick={() => saveEdit(cat.id)}><SaveIcon /></IconButton>
+                    <IconButton edge="end" aria-label="cancel" onClick={cancelEdit}><CloseIcon /></IconButton>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={1}>
+                    <IconButton edge="end" aria-label="edit" onClick={() => startEdit(cat)}><EditIcon /></IconButton>
+                    <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(cat.id)}><DeleteIcon /></IconButton>
+                  </Stack>
+                )
+              }
+            >
+              {editId === cat.id ? (
+                <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
+                  <TextField
+                    size="small"
+                    label="Nombre"
+                    value={editNombre}
+                    onChange={(e) => setEditNombre(e.target.value)}
+                    sx={{ flex: 1 }}
+                  />
+                  <Select
+                    size="small"
+                    value={editTipo}
+                    onChange={(e) => setEditTipo(e.target.value)}
+                  >
+                    <MenuItem value="ingreso">Ingreso</MenuItem>
+                    <MenuItem value="gasto">Gasto</MenuItem>
+                  </Select>
+                </Stack>
+              ) : (
+                <ListItemText
+                  primary={`${cat.nombre}`}
+                  secondary={`Tipo: ${cat.tipo}`}
                 />
-                <select
-                  value={editTipo}
-                  onChange={e => setEditTipo(e.target.value)}
-                  className="border p-1 rounded"
-                >
-                  <option value="ingreso">Ingreso</option>
-                  <option value="gasto">Gasto</option>
-                </select>
-                <button type="button" onClick={() => saveEdit(cat.id)}>Guardar</button>
-                <button type="button" onClick={cancelEdit}>Cancelar</button>
-              </>
-            ) : (
-              <>
-                <span style={{ flex: 1 }}>
-                  {cat.nombre} ({cat.tipo})
-                </span>
-                <button type="button" onClick={() => startEdit(cat)}>Editar</button>
-                <button type="button" onClick={() => handleDelete(cat.id)}>Eliminar</button>
-              </>
-            )}
-          </li>
-        ))}
-        {categories.length === 0 && <li>No hay categorías aún.</li>}
-      </ul>
+              )}
+            </ListItem>
+          ))}
+          {categories.length === 0 && (
+            <ListItem><ListItemText primary="No hay categorías aún." /></ListItem>
+          )}
+        </List>
+      </Paper>
 
-      <form onSubmit={handleCreate} className="mb-4 p-4 border rounded">
-        <h2 className="text-xl mb-2">Nueva Categoría</h2>
-        <div className="mb-2">
-          <label className="mr-2">Nombre</label>
-          <input
-            type="text"
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Nueva Categoría</Typography>
+        <Stack component="form" direction={{ xs:'column', sm:'row' }} spacing={2} onSubmit={handleCreate}>
+          <TextField
+            label="Nombre"
             value={nombre}
-            onChange={e => setNombre(e.target.value)}
-            className="border p-1 rounded"
+            onChange={(e) => setNombre(e.target.value)}
             required
+            sx={{ flex: 1 }}
           />
-        </div>
-        <div className="mb-4">
-          <label className="mr-2">Tipo</label>
-          <select
+          <Select
             value={tipo}
-            onChange={e => setTipo(e.target.value)}
-            className="border p-1 rounded"
+            onChange={(e) => setTipo(e.target.value)}
+            sx={{ minWidth: 160 }}
           >
-            <option value="ingreso">Ingreso</option>
-            <option value="gasto">Gasto</option>
-          </select>
-        </div>
-        <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded">
-          Crear
-        </button>
-      </form>
-    </div>
+            <MenuItem value="ingreso">Ingreso</MenuItem>
+            <MenuItem value="gasto">Gasto</MenuItem>
+          </Select>
+          <Button type="submit" variant="contained">Crear</Button>
+        </Stack>
+      </Paper>
+    </Container>
   );
 }
