@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import CategoryList from './pages/CategoryList';
 import MovementList from './pages/MovementList';
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         {/* Ruta pública de login */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro" element={<RegisterPage />} />
 
         {/* Rutas protegidas */}
         <Route

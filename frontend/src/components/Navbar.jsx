@@ -12,7 +12,7 @@ import { clearToken, isAuthenticated } from '../services/auth';
 export default function Navbar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  if (!isAuthenticated() || pathname === '/login') return null;
+  if (!isAuthenticated() || pathname === '/login' || pathname === '/registro') return null;
 
   const handleLogout = () => {
     clearToken();
