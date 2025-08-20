@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container, Paper, Typography, Alert, Grid, Stack, TextField, Select, MenuItem,
-  IconButton, Button, List, ListItem, ListItemText, Chip
+  IconButton, Button, List, ListItem, ListItemText, Chip, FormControl, InputLabel
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -21,6 +21,7 @@ export default function MovementList() {
   const [descripcion, setDescripcion] = useState('');
 
   // filtros
+  const [filtroTipo, setFiltroTipo] = useState('');       // '', 'ingreso', 'gasto'
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [desde, setDesde] = useState('');  // YYYY-MM-DD
   const [hasta, setHasta] = useState('');  // YYYY-MM-DD
@@ -49,22 +50,31 @@ export default function MovementList() {
       .catch(() => setError('Error al cargar categorías'));
   };
 
-  // 👇 Memoiza la función para que el efecto pueda depender de ella sin warnings
+  // Cuando cambie el filtro de tipo, si la categoría seleccionada ya no encaja, la limpiamos
+  useEffect(() => {
+    if (!filtroTipo || filtroTipo === '__all__' || !filtroCategoria) return;
+    const cat = categories.find(c => c.id === Number(filtroCategoria));
+    if (cat && cat.tipo !== filtroTipo) setFiltroCategoria('');
+  }, [filtroTipo, filtroCategoria, categories]);
+
+  // Categorías visibles en selects según tipo seleccionado (si hay)
+  const categoriesForSelect = categories.filter(  c => !filtroTipo || filtroTipo === '__all__' || c.tipo === filtroTipo );
+
+  // Memoiza la función para usarla en useEffect
   const fetchMovements = useCallback(() => {
     const params = {};
-    if (filtroCategoria) params.categoria = filtroCategoria;
+    if (filtroCategoria && filtroCategoria !== '__all__') params.categoria = filtroCategoria;
+    if (filtroTipo && filtroTipo !== '__all__') params.tipo = filtroTipo;
     if (desde) params.date_from = desde;
     if (hasta) params.date_to = hasta;
 
     axios.get('/api/movimientos/', { params })
       .then(r => setMovements(r.data))
       .catch(() => setError('Error al cargar movimientos'));
-  }, [filtroCategoria, desde, hasta]);
+  }, [filtroCategoria, filtroTipo, desde, hasta]);
 
-  // Se ejecuta cuando cambian filtros/fechas (o al montar si quieres llamar también aquí)
-  useEffect(() => {
-    fetchMovements();
-  }, [fetchMovements]);
+  // Carga cuando cambian filtros
+  useEffect(() => { fetchMovements(); }, [fetchMovements]);
 
   const handleDelete = (id) => {
     if (!window.confirm('¿Seguro que quieres eliminar este movimiento?')) return;
@@ -75,7 +85,12 @@ export default function MovementList() {
 
   const handleCreate = e => {
     e.preventDefault();
-    axios.post('/api/movimientos/', { categoria: Number(categoria), fecha, cantidad, descripcion })
+    axios.post('/api/movimientos/', {
+      categoria: Number(categoria),
+      fecha,
+      cantidad,
+      descripcion
+    })
       .then(() => {
         setCategoria(''); setFecha(''); setCantidad(''); setDescripcion('');
         fetchMovements();
@@ -93,7 +108,10 @@ export default function MovementList() {
   const cancelEdit = () => { setEditId(null); setEditCategoria(''); setEditFecha(''); setEditCantidad(''); setEditDescripcion(''); };
   const saveEdit = (id) => {
     axios.patch(`/api/movimientos/${id}/`, {
-      categoria: Number(editCategoria), fecha: editFecha, cantidad: editCantidad, descripcion: editDescripcion
+      categoria: Number(editCategoria),
+      fecha: editFecha,
+      cantidad: editCantidad,
+      descripcion: editDescripcion
     }).then(() => { cancelEdit(); fetchMovements(); })
      .catch(() => setError('Error al editar movimiento'));
   };
@@ -153,21 +171,47 @@ export default function MovementList() {
               onChange={(e) => setHasta(e.target.value)}
               InputLabelProps={{ shrink: true }}
             />
-            <Select
-              value={filtroCategoria}
-              onChange={(e) => setFiltroCategoria(e.target.value)}
-              displayEmpty
-              sx={{ minWidth: 220 }}
-            >
-              <MenuItem value="">Todas las categorías</MenuItem>
-              {categories.map(c => (
-                <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>
-              ))}
-            </Select>
+
+            <FormControl sx={{ minWidth: 160 }}>
+              <InputLabel id="tipo-label">Tipo</InputLabel>
+              <Select
+                labelId="tipo-label"
+                label="Tipo"
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+              >
+                <MenuItem value="__all__">Todos</MenuItem>
+                <MenuItem value="ingreso">Ingresos</MenuItem>
+                <MenuItem value="gasto">Gastos</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl sx={{ minWidth: 240 }}>
+              <InputLabel id="cat-label">Categoría</InputLabel>
+              <Select
+                labelId="cat-label"
+                label="Categoría"
+                value={filtroCategoria}
+                onChange={(e) => setFiltroCategoria(e.target.value)}
+              >
+                <MenuItem value="__all__">Todas las categorías</MenuItem>
+                {categoriesForSelect.map(c => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.nombre} ({c.tipo})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+
+
+
           </Stack>
 
-          {(desde || hasta || filtroCategoria) && (
-            <Button variant="outlined" onClick={() => { setDesde(''); setHasta(''); setFiltroCategoria(''); }}>
+          {(desde || hasta || filtroCategoria || filtroTipo) && (
+            <Button variant="outlined" onClick={() => {
+              setDesde(''); setHasta(''); setFiltroCategoria(''); setFiltroTipo('');
+            }}>
               Limpiar filtros
             </Button>
           )}
@@ -202,17 +246,20 @@ export default function MovementList() {
               >
                 {editId === mov.id ? (
                   <Stack direction={{ xs:'column', sm:'row' }} spacing={2} sx={{ width: '100%' }}>
-                    <Select
-                      value={editCategoria}
-                      onChange={(e) => setEditCategoria(e.target.value)}
-                      sx={{ minWidth: 220 }}
-                      required
-                    >
-                      <MenuItem value="">— Categoría —</MenuItem>
-                      {categories.map(c => (
-                        <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>
-                      ))}
-                    </Select>
+                    <FormControl sx={{ minWidth: 240 }}>
+                      <InputLabel id="edit-cat-label">Categoría</InputLabel>
+                      <Select
+                        labelId="edit-cat-label"
+                        label="Categoría"
+                        value={editCategoria}
+                        onChange={(e) => setEditCategoria(e.target.value)}
+                        required
+                      >
+                        {categories.map(c => (
+                          <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                     <TextField type="date" value={editFecha} onChange={e=>setEditFecha(e.target.value)} required />
                     <TextField type="number" inputProps={{ step: '0.01' }} value={editCantidad} onChange={e=>setEditCantidad(e.target.value)} required />
                     <TextField label="Descripción" value={editDescripcion} onChange={e=>setEditDescripcion(e.target.value)} sx={{ flex: 1 }} />
@@ -240,11 +287,19 @@ export default function MovementList() {
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Nuevo Movimiento</Typography>
         <Stack component="form" direction={{ xs:'column', sm:'row' }} spacing={2} onSubmit={handleCreate}>
-          <Select value={categoria} onChange={(e)=>setCategoria(e.target.value)} sx={{ minWidth: 220 }} required>
-            <MenuItem value="">— Selecciona —</MenuItem>
-            {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>)}
-          </Select>
-        <TextField type="date" value={fecha} onChange={e=>setFecha(e.target.value)} required />
+          <FormControl sx={{ minWidth: 240 }}>
+            <InputLabel id="new-cat-label">Categoría</InputLabel>
+            <Select
+              labelId="new-cat-label"
+              label="Categoría"
+              value={categoria}
+              onChange={(e)=>setCategoria(e.target.value)}
+              required
+            >
+              {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField type="date" value={fecha} onChange={e=>setFecha(e.target.value)} required />
           <TextField type="number" inputProps={{ step:'0.01' }} value={cantidad} onChange={e=>setCantidad(e.target.value)} required />
           <TextField label="Descripción" value={descripcion} onChange={e=>setDescripcion(e.target.value)} sx={{ flex: 1 }} />
           <Button type="submit" variant="contained">Añadir</Button>
