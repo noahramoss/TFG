@@ -1,141 +1,138 @@
 // src/pages/CategoryList.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  Container, Paper, Typography, Alert, Stack, TextField, Select, MenuItem,
-  IconButton, Button, List, ListItem, ListItemText
+  Container, Paper, Typography, Alert, Stack, TextField, Button,
+  List, ListItem, ListItemText, IconButton, Chip, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import SaveIcon from '@mui/icons-material/Save';
-import CloseIcon from '@mui/icons-material/Close';
 
 export default function CategoryList() {
   const [categories, setCategories] = useState([]);
   const [nombre, setNombre] = useState('');
-  const [tipo, setTipo] = useState('ingreso');
+  const [tipo, setTipo] = useState('ingreso'); // para crear
+  const [filtroTipo, setFiltroTipo] = useState(''); // '', '__all__', 'ingreso', 'gasto'
   const [error, setError] = useState('');
-
-  const [editId, setEditId] = useState(null);
-  const [editNombre, setEditNombre] = useState('');
-  const [editTipo, setEditTipo] = useState('ingreso');
+  const [info, setInfo] = useState('');
 
   useEffect(() => { fetchCategories(); }, []);
-  useEffect(() => { if (!error) return; const t=setTimeout(()=>setError(''),4000); return ()=>clearTimeout(t); }, [error]);
+
+  // auto-ocultar mensajes
+  useEffect(() => {
+    if (!error && !info) return;
+    const t = setTimeout(() => { setError(''); setInfo(''); }, 4000);
+    return () => clearTimeout(t);
+  }, [error, info]);
 
   const fetchCategories = () => {
     axios.get('/api/categorias/')
-      .then(res => setCategories(res.data))
+      .then(r => setCategories(r.data))
       .catch(() => setError('Error al cargar categorías'));
   };
 
-  const handleCreate = e => {
+  const handleCreate = (e) => {
     e.preventDefault();
     axios.post('/api/categorias/', { nombre, tipo })
-      .then(() => { setNombre(''); setTipo('ingreso'); fetchCategories(); })
+      .then(() => {
+        setNombre('');
+        setTipo('ingreso'); // deja tu preferida por defecto
+        setInfo('Categoría creada correctamente');
+        fetchCategories();
+      })
       .catch(() => setError('Error al crear categoría'));
-  };
-
-  const startEdit = (cat) => {
-    setEditId(cat.id);
-    setEditNombre(cat.nombre);
-    setEditTipo(cat.tipo);
-  };
-  const cancelEdit = () => { setEditId(null); setEditNombre(''); setEditTipo('ingreso'); };
-
-  const saveEdit = (id) => {
-    axios.patch(`/api/categorias/${id}/`, { nombre: editNombre, tipo: editTipo })
-      .then(() => { cancelEdit(); fetchCategories(); })
-      .catch(err => setError(err.response?.data?.detail || 'Error al editar categoría'));
   };
 
   const handleDelete = (id) => {
     if (!window.confirm('¿Seguro que quieres eliminar esta categoría?')) return;
     axios.delete(`/api/categorias/${id}/`)
-      .then(() => fetchCategories())
+      .then(() => { setInfo('Categoría eliminada'); fetchCategories(); })
       .catch(err => {
-        const msg = err.response?.data?.detail
-          || err.response?.data?.non_field_errors?.[0]
-          || err.response?.data?.[0]
-          || 'No se pudo eliminar (puede tener movimientos).';
-        setError(msg);
+        const msg = err.response?.data?.detail || err.response?.data || 'No se pudo eliminar la categoría';
+        setError(typeof msg === 'string' ? msg : 'No se pudo eliminar la categoría');
       });
   };
+
+  // Filtrado: '__all__' equivale a "sin filtro"
+  const filtered = categories.filter(c =>
+    !filtroTipo || filtroTipo === '__all__' || c.tipo === filtroTipo
+  );
 
   return (
     <Container sx={{ mt: 3 }}>
       <Typography variant="h4" sx={{ mb: 2 }}>Categorías</Typography>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {info && <Alert severity="success" sx={{ mb: 2 }}>{info}</Alert>}
+
+      {/* Filtro por tipo */}
       <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs:'column', sm:'row' }} spacing={2} alignItems="center">
+          <FormControl sx={{ minWidth: 220 }}>
+            <InputLabel id="filtro-tipo-label">Filtrar por tipo</InputLabel>
+            <Select
+              labelId="filtro-tipo-label"
+              label="Filtrar por tipo"
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+            >
+              {/* Valor centinela: muestra "Todas" y no aplica filtro */}
+              <MenuItem value="__all__">Todas</MenuItem>
+              <MenuItem value="ingreso">Ingresos</MenuItem>
+              <MenuItem value="gasto">Gastos</MenuItem>
+            </Select>
+          </FormControl>
+          {(filtroTipo && filtroTipo !== '') && (
+            <Button variant="outlined" onClick={() => setFiltroTipo('')}>
+              Limpiar
+            </Button>
+          )}
+        </Stack>
+      </Paper>
+
+      {/* Listado */}
+      <Paper sx={{ p: 1, mb: 2 }}>
         <List dense>
-          {categories.map(cat => (
+          {filtered.map(cat => (
             <ListItem
               key={cat.id}
               secondaryAction={
-                editId === cat.id ? (
-                  <Stack direction="row" spacing={1}>
-                    <IconButton edge="end" aria-label="save" onClick={() => saveEdit(cat.id)}><SaveIcon /></IconButton>
-                    <IconButton edge="end" aria-label="cancel" onClick={cancelEdit}><CloseIcon /></IconButton>
-                  </Stack>
-                ) : (
-                  <Stack direction="row" spacing={1}>
-                    <IconButton edge="end" aria-label="edit" onClick={() => startEdit(cat)}><EditIcon /></IconButton>
-                    <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(cat.id)}><DeleteIcon /></IconButton>
-                  </Stack>
-                )
+                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(cat.id)}>
+                  <DeleteIcon />
+                </IconButton>
               }
             >
-              {editId === cat.id ? (
-                <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
-                  <TextField
-                    size="small"
-                    label="Nombre"
-                    value={editNombre}
-                    onChange={(e) => setEditNombre(e.target.value)}
-                    sx={{ flex: 1 }}
-                  />
-                  <Select
-                    size="small"
-                    value={editTipo}
-                    onChange={(e) => setEditTipo(e.target.value)}
-                  >
-                    <MenuItem value="ingreso">Ingreso</MenuItem>
-                    <MenuItem value="gasto">Gasto</MenuItem>
-                  </Select>
-                </Stack>
-              ) : (
-                <ListItemText
-                  primary={`${cat.nombre}`}
-                  secondary={`Tipo: ${cat.tipo}`}
-                />
-              )}
+              <ListItemText
+                primary={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <span>{cat.nombre}</span>
+                    <Chip size="small" label={cat.tipo} color={cat.tipo === 'gasto' ? 'error' : 'success'} />
+                  </Stack>
+                }
+              />
             </ListItem>
           ))}
-          {categories.length === 0 && (
-            <ListItem><ListItemText primary="No hay categorías aún." /></ListItem>
-          )}
+          {filtered.length === 0 && <ListItem><ListItemText primary="No hay categorías para mostrar." /></ListItem>}
         </List>
       </Paper>
 
+      {/* Crear nueva */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Nueva Categoría</Typography>
         <Stack component="form" direction={{ xs:'column', sm:'row' }} spacing={2} onSubmit={handleCreate}>
-          <TextField
-            label="Nombre"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            required
-            sx={{ flex: 1 }}
-          />
-          <Select
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="ingreso">Ingreso</MenuItem>
-            <MenuItem value="gasto">Gasto</MenuItem>
-          </Select>
+          <TextField label="Nombre" value={nombre} onChange={e=>setNombre(e.target.value)} required sx={{ flex: 1 }} />
+          <FormControl sx={{ minWidth: 180 }}>
+            <InputLabel id="tipo-create-label">Tipo</InputLabel>
+            <Select
+              labelId="tipo-create-label"
+              label="Tipo"
+              value={tipo}
+              onChange={(e)=>setTipo(e.target.value)}
+              required
+            >
+              <MenuItem value="ingreso">Ingreso</MenuItem>
+              <MenuItem value="gasto">Gasto</MenuItem>
+            </Select>
+          </FormControl>
           <Button type="submit" variant="contained">Crear</Button>
         </Stack>
       </Paper>
