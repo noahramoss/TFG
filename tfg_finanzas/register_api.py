@@ -1,5 +1,7 @@
+# tfg_finanzas/register_api.py
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,8 +21,15 @@ class RegisterSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({'password2': 'Las contraseñas no coinciden.'})
-        # Valida con las reglas de Django (longitud mínima, etc.)
-        validate_password(attrs['password'])
+
+        # Validar la contraseña contra las reglas del sistema, usando un usuario temporal
+        temp_user = User(username=attrs['username'], email=attrs.get('email', ''))
+        try:
+            validate_password(attrs['password'], user=temp_user)
+        except DjangoValidationError as e:
+            # e.messages es una lista (p.ej. ["Muy corta", "No solo números", ...])
+            raise serializers.ValidationError({'password': e.messages})
+
         return attrs
 
     def create(self, validated_data):
@@ -34,7 +43,7 @@ class RegisterSerializer(serializers.Serializer):
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # evita CSRF al no usar SessionAuthentication
+    authentication_classes = []
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)

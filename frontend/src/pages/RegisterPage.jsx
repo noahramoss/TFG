@@ -53,19 +53,26 @@ export default function RegisterPage() {
       setToken(token);
       navigate('/categorias', { replace: true });
     } catch (err) {
-      // DRF puede devolver errores por campo (username/password/password2) o "detail"
       const data = err.response?.data;
-      const firstFieldError =
-        (Array.isArray(data?.username) && data.username[0]) ||
-        (Array.isArray(data?.email) && data.email[0]) ||
-        (Array.isArray(data?.password) && data.password[0]) ||
-        (data?.password2) ||
-        data?.detail ||
-        'No se pudo registrar. Revisa los datos.';
-      setError(firstFieldError);
-    } finally {
-      setLoading(false);
-    }
+        let msg = 'No se pudo registrar. Revisa los datos.';
+
+        if (Array.isArray(data?.password)) {
+            // Une todos los mensajes de contraseña
+            msg = data.password.join(' ');
+        } else if (data?.password2) {
+            msg = data.password2;
+        } else if (Array.isArray(data?.username)) {
+            msg = data.username[0];
+        } else if (Array.isArray(data?.email)) {
+            msg = data.email[0];
+        } else if (data?.detail) {
+            msg = data.detail;
+        }
+
+        setError(msg);
+        } finally {
+        setLoading(false);
+        }
   };
 
   return (
@@ -105,7 +112,7 @@ export default function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               fullWidth
-              helperText="Mínimo según las reglas del sistema"
+              helperText="Mínimo 8 caracteres, no solo números, que no sea demasiado similar a tu usuario y evita contraseñas comunes."
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
