@@ -1,5 +1,5 @@
 // src/pages/MovementList.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container, Paper, Typography, Alert, Grid, Stack, TextField, Select, MenuItem,
@@ -20,8 +20,10 @@ export default function MovementList() {
   const [cantidad, setCantidad] = useState('');
   const [descripcion, setDescripcion] = useState('');
 
-  // filtro
+  // filtros
   const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [desde, setDesde] = useState('');  // YYYY-MM-DD
+  const [hasta, setHasta] = useState('');  // YYYY-MM-DD
 
   // edición
   const [editId, setEditId] = useState(null);
@@ -32,23 +34,52 @@ export default function MovementList() {
 
   const [error, setError] = useState('');
 
-  useEffect(() => { fetchData(); }, []);
-  useEffect(() => { if (!error) return; const t=setTimeout(()=>setError(''),4000); return ()=>clearTimeout(t); }, [error]);
+  useEffect(() => { fetchCategories(); }, []);
 
-  const fetchData = () => {
-    axios.get('/api/categorias/').then(r => setCategories(r.data)).catch(() => setError('Error al cargar categorías'));
-    axios.get('/api/movimientos/').then(r => setMovements(r.data)).catch(() => setError('Error al cargar movimientos'));
+  // Auto-ocultar error
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  const fetchCategories = () => {
+    axios.get('/api/categorias/')
+      .then(r => setCategories(r.data))
+      .catch(() => setError('Error al cargar categorías'));
   };
+
+  // 👇 Memoiza la función para que el efecto pueda depender de ella sin warnings
+  const fetchMovements = useCallback(() => {
+    const params = {};
+    if (filtroCategoria) params.categoria = filtroCategoria;
+    if (desde) params.date_from = desde;
+    if (hasta) params.date_to = hasta;
+
+    axios.get('/api/movimientos/', { params })
+      .then(r => setMovements(r.data))
+      .catch(() => setError('Error al cargar movimientos'));
+  }, [filtroCategoria, desde, hasta]);
+
+  // Se ejecuta cuando cambian filtros/fechas (o al montar si quieres llamar también aquí)
+  useEffect(() => {
+    fetchMovements();
+  }, [fetchMovements]);
 
   const handleDelete = (id) => {
     if (!window.confirm('¿Seguro que quieres eliminar este movimiento?')) return;
-    axios.delete(`/api/movimientos/${id}/`).then(() => fetchData()).catch(() => setError('Error al eliminar movimiento'));
+    axios.delete(`/api/movimientos/${id}/`)
+      .then(() => fetchMovements())
+      .catch(() => setError('Error al eliminar movimiento'));
   };
 
   const handleCreate = e => {
     e.preventDefault();
     axios.post('/api/movimientos/', { categoria: Number(categoria), fecha, cantidad, descripcion })
-      .then(() => { setCategoria(''); setFecha(''); setCantidad(''); setDescripcion(''); fetchData(); })
+      .then(() => {
+        setCategoria(''); setFecha(''); setCantidad(''); setDescripcion('');
+        fetchMovements();
+      })
       .catch(() => setError('Error al crear movimiento'));
   };
 
@@ -63,10 +94,11 @@ export default function MovementList() {
   const saveEdit = (id) => {
     axios.patch(`/api/movimientos/${id}/`, {
       categoria: Number(editCategoria), fecha: editFecha, cantidad: editCantidad, descripcion: editDescripcion
-    }).then(() => { cancelEdit(); fetchData(); }).catch(() => setError('Error al editar movimiento'));
+    }).then(() => { cancelEdit(); fetchMovements(); })
+     .catch(() => setError('Error al editar movimiento'));
   };
 
-  // KPIs
+  // KPI a partir de los movimientos ya filtrados
   const totals = movements.reduce((acc, m) => {
     const cat = categories.find(c => c.id === m.categoria);
     const val = Number(m.cantidad) || 0;
@@ -75,8 +107,6 @@ export default function MovementList() {
   }, { ingresos: 0, gastos: 0 });
   const balance = totals.ingresos - totals.gastos;
   const eur = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
-
-  const visibles = movements.filter(m => !filtroCategoria || m.categoria === Number(filtroCategoria));
 
   return (
     <Container sx={{ mt: 3 }}>
@@ -105,22 +135,41 @@ export default function MovementList() {
         </Grid>
       </Grid>
 
-      {/* Filtro */}
+      {/* Filtros */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs:'column', sm:'row' }} spacing={2} alignItems="center">
-          <Typography variant="body2">Filtrar por categoría</Typography>
-          <Select
-            value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
-            sx={{ minWidth: 220 }}
-          >
-            <MenuItem value="">Todas</MenuItem>
-            {categories.map(c => (
-              <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>
-            ))}
-          </Select>
-          {filtroCategoria && (
-            <Button variant="outlined" onClick={() => setFiltroCategoria('')}>Quitar filtro</Button>
+          <Stack direction={{ xs:'column', sm:'row' }} spacing={2} sx={{ flex: 1 }}>
+            <TextField
+              label="Desde"
+              type="date"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Hasta"
+              type="date"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Select
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+              displayEmpty
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="">Todas las categorías</MenuItem>
+              {categories.map(c => (
+                <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>
+              ))}
+            </Select>
+          </Stack>
+
+          {(desde || hasta || filtroCategoria) && (
+            <Button variant="outlined" onClick={() => { setDesde(''); setHasta(''); setFiltroCategoria(''); }}>
+              Limpiar filtros
+            </Button>
           )}
         </Stack>
       </Paper>
@@ -128,7 +177,7 @@ export default function MovementList() {
       {/* Listado */}
       <Paper sx={{ p: 1, mb: 2 }}>
         <List dense>
-          {visibles.map(mov => {
+          {movements.map(mov => {
             const cat = categories.find(c => c.id === mov.categoria);
             const sign = cat?.tipo === 'gasto' ? '-' : '+';
             const amountNum = Number(mov.cantidad);
@@ -173,7 +222,7 @@ export default function MovementList() {
                     primary={
                       <Stack direction="row" spacing={1} alignItems="center">
                         <strong>{mov.fecha}</strong>
-                        <span>— {descripcion || mov.descripcion || 'Sin descripción'}</span>
+                        <span>— {mov.descripcion || 'Sin descripción'}</span>
                         <Chip size="small" label={`${sign}${amount}`} color={cat?.tipo === 'gasto' ? 'error' : 'success'} />
                       </Stack>
                     }
@@ -183,7 +232,7 @@ export default function MovementList() {
               </ListItem>
             );
           })}
-          {visibles.length === 0 && <ListItem><ListItemText primary="No hay movimientos para mostrar." /></ListItem>}
+          {movements.length === 0 && <ListItem><ListItemText primary="No hay movimientos para mostrar." /></ListItem>}
         </List>
       </Paper>
 
@@ -195,7 +244,7 @@ export default function MovementList() {
             <MenuItem value="">— Selecciona —</MenuItem>
             {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>)}
           </Select>
-          <TextField type="date" value={fecha} onChange={e=>setFecha(e.target.value)} required />
+        <TextField type="date" value={fecha} onChange={e=>setFecha(e.target.value)} required />
           <TextField type="number" inputProps={{ step:'0.01' }} value={cantidad} onChange={e=>setCantidad(e.target.value)} required />
           <TextField label="Descripción" value={descripcion} onChange={e=>setDescripcion(e.target.value)} sx={{ flex: 1 }} />
           <Button type="submit" variant="contained">Añadir</Button>
