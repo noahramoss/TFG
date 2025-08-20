@@ -23,24 +23,28 @@ class CategoriaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Solo categorías del usuario logueado
-        return Categoria.objects.filter(usuario=self.request.user).order_by('nombre')
+        qs = Categoria.objects.filter(usuario=self.request.user).order_by('nombre')
+
+        # Permitir filtro por tipo en la API: ?tipo=ingreso|gasto
+        tipo = self.request.query_params.get('tipo')
+        if tipo in ('ingreso', 'gasto'):
+            qs = qs.filter(tipo=tipo)
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
 
     def perform_destroy(self, instance):
-        # Bloquea el borrado si tiene movimientos asociados del mismo usuario
         tiene_movs = Movimiento.objects.filter(
             usuario=self.request.user,
             categoria=instance
         ).exists()
-
         if tiene_movs:
             raise ValidationError(
                 'No puedes borrar esta categoría porque tiene movimientos asociados. '
                 'Primero reasigna o elimina esos movimientos.'
             )
-
         instance.delete()
 
 
