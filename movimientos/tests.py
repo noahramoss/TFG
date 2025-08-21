@@ -58,3 +58,18 @@ class MovimientosApiTests(TestCase):
         self.assertEqual(float(j['total_ingresos']), 2000.0)
         self.assertEqual(float(j['total_gastos']), 500.0)
         self.assertEqual(float(j['balance']), 1500.0)
+
+    def test_resumen_mensual(self):
+        r = self.c.get('/api/movimientos/resumen-mensual/', {
+            'date_from': '2025-05-01', 'date_to': '2025-05-31'
+        })
+        self.assertEqual(r.status_code, 200)
+        j = r.json()
+        self.assertIn('series', j)
+        # En mayo hay nuestros 2 movimientos de setUp (2000 ingreso, 500 gasto)
+        meses = {row['month']: row for row in j['series']}
+        mayo = meses.get('2025-05')
+        self.assertIsNotNone(mayo)
+        self.assertEqual(mayo['ingresos'], 2000.0)
+        self.assertEqual(mayo['gastos'], 500.0)
+        self.assertEqual(mayo['balance'], 1500.0)
