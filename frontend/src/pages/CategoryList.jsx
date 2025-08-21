@@ -7,6 +7,20 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 
+// ---- NUEVO: helper para extraer mensajes útiles del backend (DRF) ----
+function getServerMessage(err, fallback = 'Ocurrió un error') {
+  const data = err?.response?.data;
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;              // DRF a veces devuelve texto plano
+  if (typeof data.detail === 'string') return data.detail; // {"detail": "mensaje"}
+  if (Array.isArray(data.detail) && data.detail[0]) return data.detail[0]; // {"detail": ["mensaje"]}
+  // Errores por campo: {nombre: ["..."], ...} o non_field_errors
+  const first = Object.values(data)
+    .flat()
+    .find((v) => typeof v === 'string');
+  return first || fallback;
+}
+
 export default function CategoryList() {
   const [categories, setCategories] = useState([]);
   const [nombre, setNombre] = useState('');
@@ -32,14 +46,17 @@ export default function CategoryList() {
 
   const handleCreate = (e) => {
     e.preventDefault();
-    axios.post('/api/categorias/', { nombre, tipo })
+    axios.post('/api/categorias/', { nombre: nombre.trim(), tipo })
       .then(() => {
         setNombre('');
-        setTipo('ingreso'); // deja tu preferida por defecto
+        setTipo('ingreso');
         setInfo('Categoría creada correctamente');
         fetchCategories();
       })
-      .catch(() => setError('Error al crear categoría'));
+      .catch(err => {
+        // ← usa el mensaje del backend (p. ej. "Ya existe una categoría con ese nombre y tipo.")
+        setError(getServerMessage(err, 'No se pudo crear la categoría'));
+      });
   };
 
   const handleDelete = (id) => {
@@ -47,8 +64,8 @@ export default function CategoryList() {
     axios.delete(`/api/categorias/${id}/`)
       .then(() => { setInfo('Categoría eliminada'); fetchCategories(); })
       .catch(err => {
-        const msg = err.response?.data?.detail || err.response?.data || 'No se pudo eliminar la categoría';
-        setError(typeof msg === 'string' ? msg : 'No se pudo eliminar la categoría');
+        // ← usa el mensaje del backend (p. ej. "No se puede eliminar la categoría porque tiene N movimiento(s)…")
+        setError(getServerMessage(err, 'No se pudo eliminar la categoría'));
       });
   };
 
