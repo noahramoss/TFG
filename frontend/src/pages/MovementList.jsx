@@ -3,12 +3,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container, Paper, Typography, Alert, Grid, Stack, TextField, Select, MenuItem,
-  IconButton, Button, List, ListItem, ListItemText, Chip, FormControl, InputLabel, Box
+  IconButton, Button, List, ListItem, ListItemText, Chip, FormControl, InputLabel,
+  Box
 } from '@mui/material';
+import Pagination from '@mui/material/Pagination';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
+
+const ORDERING_OPTIONS = [
+  { value: '-fecha', label: 'Fecha (más recientes)' },
+  { value: 'fecha',  label: 'Fecha (más antiguas)' },
+  { value: '-cantidad', label: 'Cantidad (mayor primero)' },
+  { value: 'cantidad',  label: 'Cantidad (menor primero)' },
+  { value: 'descripcion',  label: 'Descripción (A–Z)' },
+  { value: '-descripcion', label: 'Descripción (Z–A)' },
+];
+
+const PAGESIZES = [5, 10, 20, 50];
 
 export default function MovementList() {
   const [movements, setMovements] = useState([]);
@@ -25,6 +38,13 @@ export default function MovementList() {
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [desde, setDesde] = useState('');  // YYYY-MM-DD
   const [hasta, setHasta] = useState('');  // YYYY-MM-DD
+  const [search, setSearch] = useState(''); // búsqueda por descripción
+
+  // ordenación + paginación
+  const [ordering, setOrdering]   = useState('-fecha');
+  const [page, setPage]           = useState(1);
+  const [pageSize, setPageSize]   = useState(10);
+  const [count, setCount]         = useState(0);
 
   // edición
   const [editId, setEditId] = useState(null);
@@ -34,6 +54,9 @@ export default function MovementList() {
   const [editDescripcion, setEditDescripcion] = useState('');
 
   const [error, setError] = useState('');
+
+  // KPIs desde el backend (no dependen de la página)
+  const [kpis, setKpis] = useState({ total_ingresos: 0, total_gastos: 0, balance: 0 });
 
   useEffect(() => { fetchCategories(); }, []);
 
@@ -45,10 +68,15 @@ export default function MovementList() {
   }, [error]);
 
   const fetchCategories = () => {
-    axios.get('/api/categorias/')
-      .then(r => setCategories(r.data))
+    axios.get('/api/categorias/', { params: { ordering: 'nombre', page_size: 1000 } })
+      .then(r => {
+        const data = r.data;
+        const list = Array.isArray(data) ? data : (data.results || []);
+        setCategories(list);
+      })
       .catch(() => setError('Error al cargar categorías'));
   };
+
 
   // Cuando cambie el filtro de tipo, si la categoría seleccionada ya no encaja, la limpiamos
   useEffect(() => {
@@ -62,21 +90,57 @@ export default function MovementList() {
     c => !filtroTipo || filtroTipo === '__all__' || c.tipo === filtroTipo
   );
 
-  // Memoiza la función para usarla en useEffect
-  const fetchMovements = useCallback(() => {
+  // KPIs (totales) del backend con los mismos filtros (sin paginar)
+  const fetchResumen = useCallback(() => {
     const params = {};
     if (filtroCategoria && filtroCategoria !== '__all__') params.categoria = filtroCategoria;
     if (filtroTipo && filtroTipo !== '__all__') params.tipo = filtroTipo;
     if (desde) params.date_from = desde;
     if (hasta) params.date_to = hasta;
+    if (search) params.search = search;
+
+    axios.get('/api/movimientos/resumen', { params })
+      .then(r => setKpis({
+        total_ingresos: r.data?.total_ingresos || 0,
+        total_gastos:   r.data?.total_gastos   || 0,
+        balance:        r.data?.balance        || 0,
+      }))
+      .catch(() => setError('Error al calcular totales'));
+  }, [filtroCategoria, filtroTipo, desde, hasta, search]);
+
+  // Lista paginada
+  const fetchMovements = useCallback(() => {
+    const params = {
+      page,
+      page_size: pageSize,
+      ordering,
+    };
+    if (filtroCategoria && filtroCategoria !== '__all__') params.categoria = filtroCategoria;
+    if (filtroTipo && filtroTipo !== '__all__') params.tipo = filtroTipo;
+    if (desde) params.date_from = desde;
+    if (hasta) params.date_to = hasta;
+    if (search) params.search = search;
 
     axios.get('/api/movimientos/', { params })
-      .then(r => setMovements(r.data))
+      .then(r => {
+        if (Array.isArray(r.data)) {
+          // por si la paginación global no estuviera activa
+          setMovements(r.data);
+          setCount(r.data.length);
+        } else {
+          setMovements(r.data.results || []);
+          setCount(r.data.count || 0);
+        }
+      })
       .catch(() => setError('Error al cargar movimientos'));
-  }, [filtroCategoria, filtroTipo, desde, hasta]);
+  }, [page, pageSize, ordering, filtroCategoria, filtroTipo, desde, hasta, search]);
 
-  // Carga cuando cambian filtros
+  // Carga cuando cambian filtros, paginación u ordenación
   useEffect(() => { fetchMovements(); }, [fetchMovements]);
+  useEffect(() => { fetchResumen(); }, [fetchResumen]);
+
+  // Si cambia cualquier filtro “de criterio”, resetea a página 1
+  useEffect(() => { setPage(1); }, [filtroCategoria, filtroTipo, desde, hasta, search, pageSize, ordering]);
 
   const handleDelete = (id) => {
     if (!window.confirm('¿Seguro que quieres eliminar este movimiento?')) return;
@@ -104,6 +168,7 @@ export default function MovementList() {
       .then(() => {
         setCategoria(''); setFecha(''); setCantidad(''); setDescripcion('');
         fetchMovements();
+        fetchResumen();
       })
       .catch((err) => {
         const msg = err.response?.data?.cantidad?.[0]
@@ -137,7 +202,7 @@ export default function MovementList() {
       fecha: editFecha,
       cantidad: val.toFixed(2),
       descripcion: editDescripcion
-    }).then(() => { cancelEdit(); fetchMovements(); })
+    }).then(() => { cancelEdit(); fetchMovements(); fetchResumen(); })
      .catch((err) => {
        const msg = err.response?.data?.cantidad?.[0]
          || err.response?.data?.detail
@@ -146,14 +211,7 @@ export default function MovementList() {
      });
   };
 
-  // KPI a partir de los movimientos ya filtrados
-  const totals = movements.reduce((acc, m) => {
-    const cat = categories.find(c => c.id === m.categoria);
-    const val = Number(m.cantidad) || 0;
-    if (cat?.tipo === 'gasto') acc.gastos += val; else acc.ingresos += val;
-    return acc;
-  }, { ingresos: 0, gastos: 0 });
-  const balance = totals.ingresos - totals.gastos;
+  const totalPages = Math.max(1, Math.ceil(count / pageSize));
   const eur = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
 
   return (
@@ -161,38 +219,31 @@ export default function MovementList() {
       <Typography variant="h4" sx={{ mb: 2 }}>Movimientos</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      {/* KPIs */}
+      {/* KPIs (backend) */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Ingresos</Typography>
-            <Typography variant="h6" color="success.main">+{eur.format(totals.ingresos)}</Typography>
+            <Typography variant="h6" color="success.main">+{eur.format(kpis.total_ingresos || 0)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Gastos</Typography>
-            <Typography variant="h6" color="error.main">-{eur.format(totals.gastos)}</Typography>
+            <Typography variant="h6" color="error.main">-{eur.format(kpis.total_gastos || 0)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Balance</Typography>
-            <Typography variant="h6">{eur.format(balance)}</Typography>
+            <Typography variant="h6">{eur.format(kpis.balance || 0)}</Typography>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Filtros (ahora con WRAP) */}
+      {/* Filtros + búsqueda + ordenación + tamaño página */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            alignItems: 'stretch',
-          }}
-        >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'stretch' }}>
           <TextField
             label="Desde"
             type="date"
@@ -243,10 +294,45 @@ export default function MovementList() {
             </Select>
           </FormControl>
 
-          {(desde || hasta || filtroCategoria || filtroTipo) && (
+          <TextField
+            label="Buscar descripción"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Ej: alquiler, nómina..."
+            fullWidth
+            sx={{ flex: '2 1 260px' }}
+          />
+
+          <FormControl fullWidth sx={{ flex: '1 1 220px' }}>
+            <InputLabel id="ordering-label">Ordenar por</InputLabel>
+            <Select
+              labelId="ordering-label"
+              label="Ordenar por"
+              value={ordering}
+              onChange={(e) => setOrdering(e.target.value)}
+            >
+              {ORDERING_OPTIONS.map(o => (
+                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={{ flex: '0 1 140px' }}>
+            <InputLabel id="pagesize-label">Tamaño</InputLabel>
+            <Select
+              labelId="pagesize-label"
+              label="Tamaño"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+            >
+              {PAGESIZES.map(ps => <MenuItem key={ps} value={ps}>{ps}/página</MenuItem>)}
+            </Select>
+          </FormControl>
+
+          {(desde || hasta || filtroCategoria || filtroTipo || search) && (
             <Button
               variant="outlined"
-              onClick={() => { setDesde(''); setHasta(''); setFiltroCategoria(''); setFiltroTipo(''); }}
+              onClick={() => { setDesde(''); setHasta(''); setFiltroCategoria(''); setFiltroTipo(''); setSearch(''); }}
               sx={{ flex: { xs: '1 1 200px', sm: '0 0 auto' }, width: { xs: '100%', sm: 'auto' } }}
             >
               Limpiar filtros
@@ -282,15 +368,7 @@ export default function MovementList() {
                 }
               >
                 {editId === mov.id ? (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 2,
-                      width: '100%',
-                      alignItems: 'center',
-                    }}
-                  >
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, width: '100%', alignItems: 'center' }}>
                     <FormControl fullWidth sx={{ flex: '2 1 260px' }}>
                       <InputLabel id="edit-cat-label">Categoría</InputLabel>
                       <Select
@@ -352,20 +430,26 @@ export default function MovementList() {
           })}
           {movements.length === 0 && <ListItem><ListItemText primary="No hay movimientos para mostrar." /></ListItem>}
         </List>
+
+        {/* Controles de paginación */}
+        <Stack direction="row" justifyContent="center" sx={{ py: 2 }}>
+          <Pagination
+            count={totalPages}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            showFirstButton
+            showLastButton
+          />
+        </Stack>
       </Paper>
 
-      {/* Creación (ahora con WRAP) */}
+      {/* Creación */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Nuevo Movimiento</Typography>
         <Box
           component="form"
           onSubmit={handleCreate}
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            alignItems: 'stretch',
-          }}
+          sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'stretch' }}
         >
           <FormControl fullWidth sx={{ flex: '2 1 280px' }}>
             <InputLabel id="new-cat-label">Categoría</InputLabel>

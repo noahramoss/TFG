@@ -39,10 +39,11 @@ export default function CategoryList() {
   }, [error, info]);
 
   const fetchCategories = () => {
-    axios.get('/api/categorias/')
-      .then(r => setCategories(r.data))
+    axios.get('/api/categorias/', { params: { ordering: 'nombre', page_size: 1000 } })
+      .then(r => setCategories(Array.isArray(r.data) ? r.data : (r.data.results || [])))
       .catch(() => setError('Error al cargar categorías'));
   };
+
 
   const handleCreate = (e) => {
     e.preventDefault();
