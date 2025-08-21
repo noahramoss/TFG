@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import CategoryList from './pages/CategoryList';
 import MovementList from './pages/MovementList';
 import Navbar from './components/Navbar';
+import Dashboard from './pages/Dashboard';
 
 
 function App() {
@@ -33,6 +34,13 @@ function App() {
               <MovementList />  
             </ProtectedRoute>
           }
+        />
+        <Route
+         path="/dashboard"
+         element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>}
         />
 
         {/* Redirigir cualquier otra ruta a login */}

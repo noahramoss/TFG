@@ -3,7 +3,8 @@ from rest_framework import viewsets, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db.models import Sum
+from django.db.models import Sum, Q
+from django.db.models.functions import TruncMonth
 
 from .models import Categoria, Movimiento
 from .serializers import CategoriaSerializer, MovimientoSerializer
@@ -83,6 +84,36 @@ class MovimientoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='resumen-mensual')
+    def resumen_mensual(self, request):
+        """
+        Agrupa por mes y devuelve ingresos, gastos y balance por mes.
+        Respeta filtros: categoria, tipo, date_from, date_to.
+        """
+        qs = self.get_queryset()
+        agg = (
+            qs.annotate(mes=TruncMonth('fecha'))
+              .values('mes')
+              .annotate(
+                  ingresos=Sum('cantidad', filter=Q(categoria__tipo='ingreso')),
+                  gastos=Sum('cantidad', filter=Q(categoria__tipo='gasto')),
+              )
+              .order_by('mes')
+        )
+
+        series = []
+        for row in agg:
+            ing = row['ingresos'] or 0
+            gas = row['gastos'] or 0
+            series.append({
+                'month': row['mes'].strftime('%Y-%m'),
+                'ingresos': float(ing),
+                'gastos': float(gas),
+                'balance': float(ing - gas),
+            })
+
+        return Response({'series': series})
 
     @action(detail=False, methods=['get'])
     def resumen(self, request):
