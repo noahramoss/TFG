@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.db.models.functions import Lower
 
 class Categoria(models.Model):
     TIPO_CHOICES = [
@@ -17,6 +18,14 @@ class Categoria(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.get_tipo_display()})"
 
+    class Meta:
+        # Unicidad por usuario+tipo+nombre, sin distinguir mayúsculas/minúsculas (requiere PostgreSQL)
+        constraints = [
+            models.UniqueConstraint(
+                Lower('nombre'), 'usuario', 'tipo',
+                name='uniq_categoria_usuario_nombre_ci_tipo'
+            )
+        ]
 
 class Movimiento(models.Model):
     usuario = models.ForeignKey(

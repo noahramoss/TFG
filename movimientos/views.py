@@ -34,19 +34,54 @@ class CategoriaViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        """
+        Crea la categoría para el usuario autenticado.
+        Valida duplicados (usuario + tipo + nombre) sin distinguir mayúsculas.
+        """
+        user = self.request.user
+        nombre = str(serializer.validated_data.get('nombre', '')).strip()
+        tipo = serializer.validated_data.get('tipo')
+
+        # Bloqueo de duplicados case-insensitive
+        if Categoria.objects.filter(usuario=user, tipo=tipo, nombre__iexact=nombre).exists():
+            raise ValidationError({'nombre': 'Ya existe una categoría con ese nombre y tipo.'})
+
+        serializer.save(usuario=user, nombre=nombre)
+
+    def perform_update(self, serializer):
+        """
+        Evita que al editar se renombre a un duplicado.
+        """
+        user = self.request.user
+        instance = self.get_object()
+        # Tomamos valores nuevos o los actuales si no se actualizan
+        nombre = str(serializer.validated_data.get('nombre', instance.nombre)).strip()
+        tipo = serializer.validated_data.get('tipo', instance.tipo)
+
+        qs = Categoria.objects.filter(usuario=user, tipo=tipo, nombre__iexact=nombre).exclude(pk=instance.pk)
+        if qs.exists():
+            raise ValidationError({'nombre': 'Ya existe una categoría con ese nombre y tipo.'})
+
+        serializer.save(nombre=nombre, tipo=tipo)
 
     def perform_destroy(self, instance):
-        tiene_movs = Movimiento.objects.filter(
+        """
+        Impide borrar si tiene movimientos asociados y devuelve un mensaje con el recuento.
+        """
+        n = Movimiento.objects.filter(
             usuario=self.request.user,
             categoria=instance
-        ).exists()
-        if tiene_movs:
+        ).count()
+
+        if n > 0:
+            # DRF devolverá {"detail": "..."} con 400
             raise ValidationError(
-                'No puedes borrar esta categoría porque tiene movimientos asociados. '
+                f'No se puede eliminar la categoría porque tiene {n} movimiento(s) asociado(s). '
                 'Primero reasigna o elimina esos movimientos.'
             )
-        instance.delete()
+
+        # Si no tiene movimientos, borrado estándar
+        return super().perform_destroy(instance)
 
 
 class MovimientoViewSet(viewsets.ModelViewSet):
