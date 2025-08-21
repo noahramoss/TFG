@@ -15,24 +15,39 @@ function ymd(d) {
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
 }
+const eur = (n) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 export default function Dashboard() {
   const hoy = new Date();
   const inicioAnio = `${hoy.getFullYear()}-01-01`;
-  const finAnio = `${hoy.getFullYear()}-12-31`;
+  const finAnio    = `${hoy.getFullYear()}-12-31`;
 
   const [desde, setDesde] = useState(inicioAnio);
   const [hasta, setHasta] = useState(finAnio);
 
-  const [seriesMensual, setSeriesMensual] = useState([]);   // [{month, ingresos, gastos, balance}]
-  const [catsResumen, setCatsResumen]   = useState([]);      // [{categoria__nombre, categoria__tipo, total}, ...]
-
+  const [seriesMensual, setSeriesMensual] = useState([]);   // [{month:'YYYY-MM', ingresos, gastos, balance}]
+  const [catsResumen, setCatsResumen]     = useState([]);    // [{categoria__nombre, categoria__tipo, total}]
   const [error, setError] = useState('');
+
+  // ===== Responsive helper para los pies =====
+  const [isSmall, setIsSmall] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 900 : true
+  );
+  useEffect(() => {
+    const onResize = () => setIsSmall(window.innerWidth < 900);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const pieHeight   = isSmall ? 360 : 480;       // altura del contenedor del pie
+  const pieRadius   = isSmall ? 140 : 200;       // radio del pie
+  const pieLegend   = isSmall
+    ? { layout: 'horizontal', verticalAlign: 'bottom', align: 'center' }
+    : { layout: 'vertical',   verticalAlign: 'middle', align: 'right'   };
 
   const cargar = useCallback(() => {
     const params = {};
     if (desde) params.date_from = desde;
-    if (hasta) params.date_to = hasta;
+    if (hasta) params.date_to   = hasta;
 
     Promise.all([
       axios.get('/api/movimientos/resumen-mensual/', { params }),
@@ -43,10 +58,8 @@ export default function Dashboard() {
     }).catch(() => setError('Error al cargar datos del dashboard'));
   }, [desde, hasta]);
 
-  // Carga inicial/automática
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Auto-ocultar error
   useEffect(() => {
     if (!error) return;
     const t = setTimeout(() => setError(''), 4000);
@@ -77,7 +90,15 @@ export default function Dashboard() {
     setDesde(ymd(first)); setHasta(ymd(new Date()));
   };
 
-  // Datos para pie charts por categoría
+  // ====== Gráfico de barras: datos y formato español en eje X ======
+  const fmtMonthES = new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' });
+  const barData = seriesMensual.map((row) => {
+    const [y, m] = row.month.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return { ...row, monthLabel: fmtMonthES.format(d) };
+  });
+
+  // ====== Quesitos por categoría ======
   const dataIng = catsResumen
     .filter(c => c['categoria__tipo'] === 'ingreso')
     .map(c => ({ name: c['categoria__nombre'], value: Number(c.total) }));
@@ -90,9 +111,27 @@ export default function Dashboard() {
   const totalIngCats = sum(dataIng);
   const totalGasCats = sum(dataGas);
 
-  // Paletas (MUI-ish)
-  const colorsIng = ['#1b5e20', '#2e7d32', '#43a047', '#66bb6a', '#81c784', '#a5d6a7'];
-  const colorsGas = ['#b71c1c', '#c62828', '#e53935', '#ef5350', '#ef9a9a', '#ffcdd2'];
+  // Colores (reutilizados por barras y leyenda)
+  const colorIng = '#2e7d32';
+  const colorGas = '#c62828';
+
+  // Paletas contrastadas para los quesitos
+  const colorsIng = ['#2E7D32','#43A047','#1B5E20','#66BB6A','#81C784','#00A152','#009688','#4CAF50','#7CB342','#9CCC65','#26A69A'];
+  const colorsGas = ['#C62828','#E53935','#B71C1C','#EF5350','#8E24AA','#D81B60','#F06292','#AD1457','#F44336','#E57373','#BA68C8'];
+
+  // Leyenda personalizada (Ingresos — Gastos) para el BarChart
+  const LegendInline = () => (
+    <div style={{ display:'flex', gap:16, justifyContent:'center', alignItems:'center' }}>
+      <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+        <span style={{ width:12, height:12, background:colorIng, display:'inline-block' }} />
+        Ingresos
+      </span>
+      <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+        <span style={{ width:12, height:12, background:colorGas, display:'inline-block' }} />
+        Gastos
+      </span>
+    </div>
+  );
 
   return (
     <Container sx={{ mt: 3 }}>
@@ -130,105 +169,101 @@ export default function Dashboard() {
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Ingresos (periodo)</Typography>
-            <Typography variant="h6">
-              {totalIngresos.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
-            </Typography>
+            <Typography variant="h6">{eur(totalIngresos)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Gastos (periodo)</Typography>
-            <Typography variant="h6">
-              {totalGastos.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
-            </Typography>
+            <Typography variant="h6">{eur(totalGastos)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Balance (periodo)</Typography>
-            <Typography variant="h6">
-              {balance.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
-            </Typography>
+            <Typography variant="h6">{eur(balance)}</Typography>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Gráfico mensual */}
+      {/* Barras lado a lado con leyenda Ingresos — Gastos (ancho completo) */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Ingresos vs Gastos por mes</Typography>
-        <div style={{ width: '100%', height: 360 }}>
+        <div style={{ width: '100%', height: 380 }}>
           <ResponsiveContainer>
-            <BarChart data={seriesMensual}>
+            <BarChart
+              data={barData}
+              margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
+              barCategoryGap="20%"
+              barGap={8}
+            >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis dataKey="monthLabel" />
               <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="ingresos" stackId="a" name="Ingresos" fill="#2e7d32" />
-              <Bar dataKey="gastos"   stackId="a" name="Gastos"   fill="#c62828" />
+              <Tooltip formatter={(val, name) => [eur(Number(val)), name]} />
+              <Legend content={<LegendInline />} />
+              <Bar dataKey="ingresos" name="Ingresos" fill={colorIng} />
+              <Bar dataKey="gastos"   name="Gastos"   fill={colorGas} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Paper>
 
-      {/* Quesitos por categoría */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Ingresos por categoría</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Total: {totalIngCats.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
-            </Typography>
-            <div style={{ width: '100%', height: 320 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Tooltip formatter={(v) => v.toLocaleString('es-ES', { style:'currency', currency:'EUR' })} />
-                  <Legend />
-                  <Pie
-                    data={dataIng}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={110}
-                    label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
-                  >
-                    {dataIng.map((_, i) => <Cell key={i} fill={colorsIng[i % colorsIng.length]} />)}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </Paper>
-        </Grid>
+      {/* Pie Ingresos — ANCHO COMPLETO y circular (no donut) */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Ingresos por categoría</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Total: {eur(totalIngCats)}
+        </Typography>
+        <div style={{ width: '100%', height: pieHeight }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Tooltip formatter={(v) => eur(Number(v))} />
+              <Legend {...pieLegend} />
+              <Pie
+                data={dataIng}
+                dataKey="value"
+                nameKey="name"
+                cx={isSmall ? '50%' : '45%'}   // deja espacio a la leyenda a la derecha en desktop
+                cy="50%"
+                outerRadius={pieRadius}
+                label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
+                labelLine
+              >
+                {dataIng.map((_, i) => <Cell key={i} fill={colorsIng[i % colorsIng.length]} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </Paper>
 
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Gastos por categoría</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Total: {totalGasCats.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
-            </Typography>
-            <div style={{ width: '100%', height: 320 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Tooltip formatter={(v) => v.toLocaleString('es-ES', { style:'currency', currency:'EUR' })} />
-                  <Legend />
-                  <Pie
-                    data={dataGas}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={110}
-                    label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
-                  >
-                    {dataGas.map((_, i) => <Cell key={i} fill={colorsGas[i % colorsGas.length]} />)}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </Paper>
-        </Grid>
-      </Grid>
+      {/* Pie Gastos — ANCHO COMPLETO y circular (no donut) */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>Gastos por categoría</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Total: {eur(totalGasCats)}
+        </Typography>
+        <div style={{ width: '100%', height: pieHeight }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Tooltip formatter={(v) => eur(Number(v))} />
+              <Legend {...pieLegend} />
+              <Pie
+                data={dataGas}
+                dataKey="value"
+                nameKey="name"
+                cx={isSmall ? '50%' : '45%'}
+                cy="50%"
+                outerRadius={pieRadius}
+                label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
+                labelLine
+              >
+                {dataGas.map((_, i) => <Cell key={i} fill={colorsGas[i % colorsGas.length]} />)}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </Paper>
     </Container>
   );
 }
