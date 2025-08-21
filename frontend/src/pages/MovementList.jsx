@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
   Container, Paper, Typography, Alert, Grid, Stack, TextField, Select, MenuItem,
-  IconButton, Button, List, ListItem, ListItemText, Chip, FormControl, InputLabel
+  IconButton, Button, List, ListItem, ListItemText, Chip, FormControl, InputLabel, Box
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -58,7 +58,9 @@ export default function MovementList() {
   }, [filtroTipo, filtroCategoria, categories]);
 
   // Categorías visibles en selects según tipo seleccionado (si hay)
-  const categoriesForSelect = categories.filter(  c => !filtroTipo || filtroTipo === '__all__' || c.tipo === filtroTipo );
+  const categoriesForSelect = categories.filter(
+    c => !filtroTipo || filtroTipo === '__all__' || c.tipo === filtroTipo
+  );
 
   // Memoiza la función para usarla en useEffect
   const fetchMovements = useCallback(() => {
@@ -86,7 +88,7 @@ export default function MovementList() {
   const handleCreate = e => {
     e.preventDefault();
 
-    // --- Validación cliente: cantidad > 0 ---
+    // Validación cliente: cantidad > 0
     const val = parseFloat(cantidad);
     if (isNaN(val) || val <= 0) {
       setError('La cantidad debe ser positiva (mayor que 0).');
@@ -118,9 +120,12 @@ export default function MovementList() {
     setEditCantidad(String(m.cantidad));
     setEditDescripcion(m.descripcion || '');
   };
-  const cancelEdit = () => { setEditId(null); setEditCategoria(''); setEditFecha(''); setEditCantidad(''); setEditDescripcion(''); };
+  const cancelEdit = () => {
+    setEditId(null); setEditCategoria(''); setEditFecha(''); setEditCantidad(''); setEditDescripcion('');
+  };
+
   const saveEdit = (id) => {
-    // --- Validación cliente: cantidad > 0 (edición) ---
+    // Validación cliente: cantidad > 0 (edición)
     const val = parseFloat(editCantidad);
     if (isNaN(val) || val <= 0) {
       setError('La cantidad debe ser positiva (mayor que 0).');
@@ -178,65 +183,76 @@ export default function MovementList() {
         </Grid>
       </Grid>
 
-      {/* Filtros */}
+      {/* Filtros (ahora con WRAP) */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs:'column', sm:'row' }} spacing={2} alignItems="center">
-          <Stack direction={{ xs:'column', sm:'row' }} spacing={2} sx={{ flex: 1 }}>
-            <TextField
-              label="Desde"
-              type="date"
-              value={desde}
-              onChange={(e) => setDesde(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="Hasta"
-              type="date"
-              value={hasta}
-              onChange={(e) => setHasta(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: 'stretch',
+          }}
+        >
+          <TextField
+            label="Desde"
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            sx={{ flex: '1 1 180px' }}
+          />
+          <TextField
+            label="Hasta"
+            type="date"
+            value={hasta}
+            onChange={(e) => setHasta(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            sx={{ flex: '1 1 180px' }}
+          />
 
-            <FormControl sx={{ minWidth: 160 }}>
-              <InputLabel id="tipo-label">Tipo</InputLabel>
-              <Select
-                labelId="tipo-label"
-                label="Tipo"
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
-              >
-                <MenuItem value="__all__">Todos</MenuItem>
-                <MenuItem value="ingreso">Ingresos</MenuItem>
-                <MenuItem value="gasto">Gastos</MenuItem>
-              </Select>
-            </FormControl>
+          <FormControl fullWidth sx={{ flex: '1 1 200px' }}>
+            <InputLabel id="tipo-label">Tipo</InputLabel>
+            <Select
+              labelId="tipo-label"
+              label="Tipo"
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+            >
+              <MenuItem value="__all__">Todos</MenuItem>
+              <MenuItem value="ingreso">Ingresos</MenuItem>
+              <MenuItem value="gasto">Gastos</MenuItem>
+            </Select>
+          </FormControl>
 
-            <FormControl sx={{ minWidth: 240 }}>
-              <InputLabel id="cat-label">Categoría</InputLabel>
-              <Select
-                labelId="cat-label"
-                label="Categoría"
-                value={filtroCategoria}
-                onChange={(e) => setFiltroCategoria(e.target.value)}
-              >
-                <MenuItem value="__all__">Todas las categorías</MenuItem>
-                {categoriesForSelect.map(c => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.nombre} ({c.tipo})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
+          <FormControl fullWidth sx={{ flex: '2 1 280px' }}>
+            <InputLabel id="cat-label">Categoría</InputLabel>
+            <Select
+              labelId="cat-label"
+              label="Categoría"
+              value={filtroCategoria}
+              onChange={(e) => setFiltroCategoria(e.target.value)}
+            >
+              <MenuItem value="__all__">Todas las categorías</MenuItem>
+              {categoriesForSelect.map(c => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.nombre} ({c.tipo})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {(desde || hasta || filtroCategoria || filtroTipo) && (
-            <Button variant="outlined" onClick={() => {
-              setDesde(''); setHasta(''); setFiltroCategoria(''); setFiltroTipo('');
-            }}>
+            <Button
+              variant="outlined"
+              onClick={() => { setDesde(''); setHasta(''); setFiltroCategoria(''); setFiltroTipo(''); }}
+              sx={{ flex: { xs: '1 1 200px', sm: '0 0 auto' }, width: { xs: '100%', sm: 'auto' } }}
+            >
               Limpiar filtros
             </Button>
           )}
-        </Stack>
+        </Box>
       </Paper>
 
       {/* Listado */}
@@ -266,8 +282,16 @@ export default function MovementList() {
                 }
               >
                 {editId === mov.id ? (
-                  <Stack direction={{ xs:'column', sm:'row' }} spacing={2} sx={{ width: '100%' }}>
-                    <FormControl sx={{ minWidth: 240 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 2,
+                      width: '100%',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <FormControl fullWidth sx={{ flex: '2 1 260px' }}>
                       <InputLabel id="edit-cat-label">Categoría</InputLabel>
                       <Select
                         labelId="edit-cat-label"
@@ -282,12 +306,14 @@ export default function MovementList() {
                       </Select>
                     </FormControl>
                     <TextField
+                      label="Fecha"
                       type="date"
                       value={editFecha}
                       onChange={e=>setEditFecha(e.target.value)}
                       required
                       InputLabelProps={{ shrink: true }}
-                      label="Fecha"
+                      fullWidth
+                      sx={{ flex: '1 1 180px' }}
                     />
                     <TextField
                       label="Cantidad (€)"
@@ -298,18 +324,21 @@ export default function MovementList() {
                       inputProps={{ step: '0.01', min: '0.01' }}
                       placeholder="Ej: 1200.00"
                       helperText="Introduce un importe positivo"
+                      fullWidth
+                      sx={{ flex: '1 1 180px' }}
                     />
                     <TextField
                       label="Descripción"
                       value={editDescripcion}
                       onChange={e=>setEditDescripcion(e.target.value)}
-                      sx={{ flex: 1 }}
+                      fullWidth
+                      sx={{ flex: '3 1 300px' }}
                     />
-                  </Stack>
+                  </Box>
                 ) : (
                   <ListItemText
                     primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
                         <strong>{mov.fecha}</strong>
                         <span>— {mov.descripcion || 'Sin descripción'}</span>
                         <Chip size="small" label={`${sign}${amount}`} color={cat?.tipo === 'gasto' ? 'error' : 'success'} />
@@ -325,11 +354,20 @@ export default function MovementList() {
         </List>
       </Paper>
 
-      {/* Creación */}
+      {/* Creación (ahora con WRAP) */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Nuevo Movimiento</Typography>
-        <Stack component="form" direction={{ xs:'column', sm:'row' }} spacing={2} onSubmit={handleCreate}>
-          <FormControl sx={{ minWidth: 240 }}>
+        <Box
+          component="form"
+          onSubmit={handleCreate}
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: 'stretch',
+          }}
+        >
+          <FormControl fullWidth sx={{ flex: '2 1 280px' }}>
             <InputLabel id="new-cat-label">Categoría</InputLabel>
             <Select
               labelId="new-cat-label"
@@ -342,12 +380,14 @@ export default function MovementList() {
             </Select>
           </FormControl>
           <TextField
+            label="Fecha"
             type="date"
             value={fecha}
             onChange={e=>setFecha(e.target.value)}
             required
             InputLabelProps={{ shrink: true }}
-            label="Fecha"
+            fullWidth
+            sx={{ flex: '1 1 180px' }}
           />
           <TextField
             label="Cantidad (€)"
@@ -358,15 +398,24 @@ export default function MovementList() {
             inputProps={{ step:'0.01', min:'0.01' }}
             placeholder="Ej: 1200.00"
             helperText="Introduce un importe positivo"
+            fullWidth
+            sx={{ flex: '1 1 180px' }}
           />
           <TextField
             label="Descripción"
             value={descripcion}
             onChange={e=>setDescripcion(e.target.value)}
-            sx={{ flex: 1 }}
+            fullWidth
+            sx={{ flex: '3 1 300px' }}
           />
-          <Button type="submit" variant="contained">Añadir</Button>
-        </Stack>
+          <Button
+            type="submit"
+            variant="contained"
+            sx={{ flex: { xs: '1 1 200px', sm: '0 0 auto' }, width: { xs: '100%', sm: 'auto' } }}
+          >
+            Añadir
+          </Button>
+        </Box>
       </Paper>
     </Container>
   );
