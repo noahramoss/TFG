@@ -5,7 +5,8 @@ import {
   Container, Paper, Typography, Stack, TextField, Button, Alert, Grid
 } from '@mui/material';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell
 } from 'recharts';
 
 function ymd(d) {
@@ -22,7 +23,10 @@ export default function Dashboard() {
 
   const [desde, setDesde] = useState(inicioAnio);
   const [hasta, setHasta] = useState(finAnio);
-  const [data, setData] = useState([]); // [{month, ingresos, gastos, balance}]
+
+  const [seriesMensual, setSeriesMensual] = useState([]);   // [{month, ingresos, gastos, balance}]
+  const [catsResumen, setCatsResumen]   = useState([]);      // [{categoria__nombre, categoria__tipo, total}, ...]
+
   const [error, setError] = useState('');
 
   const cargar = useCallback(() => {
@@ -30,24 +34,31 @@ export default function Dashboard() {
     if (desde) params.date_from = desde;
     if (hasta) params.date_to = hasta;
 
-    axios.get('/api/movimientos/resumen-mensual/', { params })
-      .then(res => setData(res.data?.series || []))
-      .catch(() => setError('Error al cargar resumen mensual'));
+    Promise.all([
+      axios.get('/api/movimientos/resumen-mensual/', { params }),
+      axios.get('/api/movimientos/resumen/',        { params }),
+    ]).then(([m, r]) => {
+      setSeriesMensual(m.data?.series || []);
+      setCatsResumen(r.data?.por_categoria || []);
+    }).catch(() => setError('Error al cargar datos del dashboard'));
   }, [desde, hasta]);
 
+  // Carga inicial/automática
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Auto-ocultar error
   useEffect(() => {
     if (!error) return;
     const t = setTimeout(() => setError(''), 4000);
     return () => clearTimeout(t);
   }, [error]);
 
-  const totalIngresos = data.reduce((a, m) => a + (m.ingresos || 0), 0);
-  const totalGastos   = data.reduce((a, m) => a + (m.gastos   || 0), 0);
+  // KPI del periodo (basado en serie mensual)
+  const totalIngresos = seriesMensual.reduce((a, m) => a + (m.ingresos || 0), 0);
+  const totalGastos   = seriesMensual.reduce((a, m) => a + (m.gastos   || 0), 0);
   const balance       = totalIngresos - totalGastos;
 
-  // atajos de rango
+  // Atajos de rango
   const setEsteMes = () => {
     const d = new Date();
     const first = new Date(d.getFullYear(), d.getMonth(), 1);
@@ -66,9 +77,26 @@ export default function Dashboard() {
     setDesde(ymd(first)); setHasta(ymd(new Date()));
   };
 
+  // Datos para pie charts por categoría
+  const dataIng = catsResumen
+    .filter(c => c['categoria__tipo'] === 'ingreso')
+    .map(c => ({ name: c['categoria__nombre'], value: Number(c.total) }));
+
+  const dataGas = catsResumen
+    .filter(c => c['categoria__tipo'] === 'gasto')
+    .map(c => ({ name: c['categoria__nombre'], value: Number(c.total) }));
+
+  const sum = arr => arr.reduce((a, x) => a + x.value, 0);
+  const totalIngCats = sum(dataIng);
+  const totalGasCats = sum(dataGas);
+
+  // Paletas (MUI-ish)
+  const colorsIng = ['#1b5e20', '#2e7d32', '#43a047', '#66bb6a', '#81c784', '#a5d6a7'];
+  const colorsGas = ['#b71c1c', '#c62828', '#e53935', '#ef5350', '#ef9a9a', '#ffcdd2'];
+
   return (
     <Container sx={{ mt: 3 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>Dashboard</Typography>
+      <Typography variant="h4" sx={{ mb: 2 }}>Estadísticas</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {/* Filtros */}
@@ -88,11 +116,11 @@ export default function Dashboard() {
             onChange={(e) => setHasta(e.target.value)}
             InputLabelProps={{ shrink: true }}
           />
-          <Button variant="contained" onClick={cargar}>Cargar</Button>
+          <Button variant="contained" onClick={cargar}>Actualizar</Button>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" onClick={setEsteMes}>Este mes</Button>
             <Button variant="outlined" onClick={setMesAnterior}>Mes anterior</Button>
-            <Button variant="outlined" onClick={setYTD}>YTD</Button>
+            <Button variant="outlined" onClick={setYTD}>Año en curso</Button>
           </Stack>
         </Stack>
       </Paper>
@@ -111,7 +139,7 @@ export default function Dashboard() {
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Gastos (periodo)</Typography>
             <Typography variant="h6">
-              {(-totalGastos).toLocaleString('es-ES', { style:'currency', currency:'EUR' }).replace('-', '')}
+              {totalGastos.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
             </Typography>
           </Paper>
         </Grid>
@@ -126,22 +154,81 @@ export default function Dashboard() {
       </Grid>
 
       {/* Gráfico mensual */}
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Ingresos vs Gastos por mes</Typography>
         <div style={{ width: '100%', height: 360 }}>
           <ResponsiveContainer>
-            <BarChart data={data}>
+            <BarChart data={seriesMensual}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="ingresos" stackId="a" name="Ingresos" />
-              <Bar dataKey="gastos" stackId="a" name="Gastos" />
+              <Bar dataKey="ingresos" stackId="a" name="Ingresos" fill="#2e7d32" />
+              <Bar dataKey="gastos"   stackId="a" name="Gastos"   fill="#c62828" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </Paper>
+
+      {/* Quesitos por categoría */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Ingresos por categoría</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Total: {totalIngCats.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
+            </Typography>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Tooltip formatter={(v) => v.toLocaleString('es-ES', { style:'currency', currency:'EUR' })} />
+                  <Legend />
+                  <Pie
+                    data={dataIng}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={110}
+                    label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
+                  >
+                    {dataIng.map((_, i) => <Cell key={i} fill={colorsIng[i % colorsIng.length]} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Gastos por categoría</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Total: {totalGasCats.toLocaleString('es-ES', { style:'currency', currency:'EUR' })}
+            </Typography>
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Tooltip formatter={(v) => v.toLocaleString('es-ES', { style:'currency', currency:'EUR' })} />
+                  <Legend />
+                  <Pie
+                    data={dataGas}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={110}
+                    label={({ name, percent }) => `${name}: ${(percent*100).toFixed(0)}%`}
+                  >
+                    {dataGas.map((_, i) => <Cell key={i} fill={colorsGas[i % colorsGas.length]} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
 }

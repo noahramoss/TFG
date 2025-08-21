@@ -36,6 +36,13 @@ function App() {
           }
         />
         <Route
+         path="/estadisticas"
+         element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>}
+        />
+        <Route
          path="/dashboard"
          element={
             <ProtectedRoute>

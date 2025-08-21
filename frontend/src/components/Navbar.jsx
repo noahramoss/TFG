@@ -29,14 +29,6 @@ export default function Navbar() {
         <Stack direction="row" spacing={1}>
           <Button
             component={RouterLink}
-            to="/dashboard"
-            color="primary"
-            variant={pathname.startsWith('/dashboard') ? 'contained' : 'text'}
-          >
-            Dashboard
-          </Button>
-          <Button
-            component={RouterLink}
             to="/categorias"
             color="primary"
             variant={pathname.startsWith('/categorias') ? 'contained' : 'text'}
@@ -50,6 +42,14 @@ export default function Navbar() {
             variant={pathname.startsWith('/movimientos') ? 'contained' : 'text'}
           >
             Movimientos
+          </Button>
+          <Button
+            component={RouterLink}
+            to="/estadisticas"
+            color="primary"
+            variant={pathname.startsWith('/dashboard' || pathname.startsWith('/estadisticas')) ? 'contained' : 'text'}
+          >
+            Estadísticas
           </Button>
         </Stack>
 
