@@ -3,11 +3,14 @@ from rest_framework import viewsets, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Sum, Q
 from django.db.models.functions import TruncMonth
 
+
 from .models import Categoria, Movimiento
 from .serializers import CategoriaSerializer, MovimientoSerializer
+from .pagination import StandardResultsSetPagination
 
 
 class IsAuthenticatedAndOwner(permissions.IsAuthenticated):
@@ -21,6 +24,7 @@ class IsAuthenticatedAndOwner(permissions.IsAuthenticated):
 class CategoriaViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaSerializer
     permission_classes = [IsAuthenticatedAndOwner]
+    pagination_class = None  # ← SIN paginación para categorías
 
     def get_queryset(self):
         # Solo categorías del usuario logueado
@@ -88,6 +92,14 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
     permission_classes = [IsAuthenticatedAndOwner]
 
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['descripcion']  # ?search=texto
+    ordering_fields = ['fecha', 'cantidad', 'id', 'descripcion']  # ?ordering=-fecha,cantidad
+    ordering = ['-fecha', '-id']  # orden por defecto
+
+    pagination_class = StandardResultsSetPagination
+
+
     def get_queryset(self):
         """
         Filtra por usuario y acepta query params:
@@ -96,7 +108,7 @@ class MovimientoViewSet(viewsets.ModelViewSet):
           - date_from: 'YYYY-MM-DD'
           - date_to:   'YYYY-MM-DD'
         """
-        qs = Movimiento.objects.filter(usuario=self.request.user).order_by('-fecha', '-id')
+        qs = Movimiento.objects.filter(usuario=self.request.user)
 
         categoria = self.request.query_params.get('categoria')
         tipo = self.request.query_params.get('tipo')
