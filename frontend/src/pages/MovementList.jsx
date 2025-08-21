@@ -85,17 +85,30 @@ export default function MovementList() {
 
   const handleCreate = e => {
     e.preventDefault();
+
+    // --- Validación cliente: cantidad > 0 ---
+    const val = parseFloat(cantidad);
+    if (isNaN(val) || val <= 0) {
+      setError('La cantidad debe ser positiva (mayor que 0).');
+      return;
+    }
+
     axios.post('/api/movimientos/', {
       categoria: Number(categoria),
       fecha,
-      cantidad,
+      cantidad: val.toFixed(2),
       descripcion
     })
       .then(() => {
         setCategoria(''); setFecha(''); setCantidad(''); setDescripcion('');
         fetchMovements();
       })
-      .catch(() => setError('Error al crear movimiento'));
+      .catch((err) => {
+        const msg = err.response?.data?.cantidad?.[0]
+          || err.response?.data?.detail
+          || 'Error al crear movimiento';
+        setError(msg);
+      });
   };
 
   const startEdit = (m) => {
@@ -107,13 +120,25 @@ export default function MovementList() {
   };
   const cancelEdit = () => { setEditId(null); setEditCategoria(''); setEditFecha(''); setEditCantidad(''); setEditDescripcion(''); };
   const saveEdit = (id) => {
+    // --- Validación cliente: cantidad > 0 (edición) ---
+    const val = parseFloat(editCantidad);
+    if (isNaN(val) || val <= 0) {
+      setError('La cantidad debe ser positiva (mayor que 0).');
+      return;
+    }
+
     axios.patch(`/api/movimientos/${id}/`, {
       categoria: Number(editCategoria),
       fecha: editFecha,
-      cantidad: editCantidad,
+      cantidad: val.toFixed(2),
       descripcion: editDescripcion
     }).then(() => { cancelEdit(); fetchMovements(); })
-     .catch(() => setError('Error al editar movimiento'));
+     .catch((err) => {
+       const msg = err.response?.data?.cantidad?.[0]
+         || err.response?.data?.detail
+         || 'Error al editar movimiento';
+       setError(msg);
+     });
   };
 
   // KPI a partir de los movimientos ya filtrados
@@ -202,10 +227,6 @@ export default function MovementList() {
                 ))}
               </Select>
             </FormControl>
-
-
-
-
           </Stack>
 
           {(desde || hasta || filtroCategoria || filtroTipo) && (
@@ -260,9 +281,30 @@ export default function MovementList() {
                         ))}
                       </Select>
                     </FormControl>
-                    <TextField type="date" value={editFecha} onChange={e=>setEditFecha(e.target.value)} required />
-                    <TextField type="number" inputProps={{ step: '0.01' }} value={editCantidad} onChange={e=>setEditCantidad(e.target.value)} required />
-                    <TextField label="Descripción" value={editDescripcion} onChange={e=>setEditDescripcion(e.target.value)} sx={{ flex: 1 }} />
+                    <TextField
+                      type="date"
+                      value={editFecha}
+                      onChange={e=>setEditFecha(e.target.value)}
+                      required
+                      InputLabelProps={{ shrink: true }}
+                      label="Fecha"
+                    />
+                    <TextField
+                      label="Cantidad (€)"
+                      type="number"
+                      value={editCantidad}
+                      onChange={e=>setEditCantidad(e.target.value)}
+                      required
+                      inputProps={{ step: '0.01', min: '0.01' }}
+                      placeholder="Ej: 1200.00"
+                      helperText="Introduce un importe positivo"
+                    />
+                    <TextField
+                      label="Descripción"
+                      value={editDescripcion}
+                      onChange={e=>setEditDescripcion(e.target.value)}
+                      sx={{ flex: 1 }}
+                    />
                   </Stack>
                 ) : (
                   <ListItemText
@@ -299,9 +341,30 @@ export default function MovementList() {
               {categories.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre} ({c.tipo})</MenuItem>)}
             </Select>
           </FormControl>
-          <TextField type="date" value={fecha} onChange={e=>setFecha(e.target.value)} required />
-          <TextField type="number" inputProps={{ step:'0.01' }} value={cantidad} onChange={e=>setCantidad(e.target.value)} required />
-          <TextField label="Descripción" value={descripcion} onChange={e=>setDescripcion(e.target.value)} sx={{ flex: 1 }} />
+          <TextField
+            type="date"
+            value={fecha}
+            onChange={e=>setFecha(e.target.value)}
+            required
+            InputLabelProps={{ shrink: true }}
+            label="Fecha"
+          />
+          <TextField
+            label="Cantidad (€)"
+            type="number"
+            value={cantidad}
+            onChange={e=>setCantidad(e.target.value)}
+            required
+            inputProps={{ step:'0.01', min:'0.01' }}
+            placeholder="Ej: 1200.00"
+            helperText="Introduce un importe positivo"
+          />
+          <TextField
+            label="Descripción"
+            value={descripcion}
+            onChange={e=>setDescripcion(e.target.value)}
+            sx={{ flex: 1 }}
+          />
           <Button type="submit" variant="contained">Añadir</Button>
         </Stack>
       </Paper>
