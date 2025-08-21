@@ -41,3 +41,8 @@ class MovimientoSerializer(serializers.ModelSerializer):
         model = Movimiento
         fields = ['id', 'usuario', 'categoria', 'descripcion', 'fecha', 'cantidad']
         read_only_fields = ['usuario']
+    
+    def validate_cantidad(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('La cantidad debe ser positiva (mayor que 0).')
+        return value

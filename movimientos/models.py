@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.db.models.functions import Lower
+from decimal import Decimal
+from django.core.validators import MinValueValidator
 
 class Categoria(models.Model):
     TIPO_CHOICES = [
@@ -41,7 +43,7 @@ class Movimiento(models.Model):
     )
     descripcion = models.CharField(max_length=200, blank=True)
     fecha = models.DateField()
-    cantidad = models.DecimalField(max_digits=10, decimal_places=2)
+    cantidad = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
 
     def __str__(self):
         signo = '+' if self.categoria and self.categoria.tipo == 'ingreso' else '-'
