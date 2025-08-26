@@ -236,7 +236,7 @@ export default function MovementList() {
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Balance</Typography>
-            <Typography variant="h6">{eur.format(kpis.balance || 0)}</Typography>
+            <Typography variant="h6" color={(Number(kpis.balance) || 0) >= 0 ? 'success.main' : 'error.main'}>{eur.format(kpis.balance || 0)}</Typography>
           </Paper>
         </Grid>
       </Grid>

@@ -169,19 +169,19 @@ export default function Dashboard() {
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Ingresos (periodo)</Typography>
-            <Typography variant="h6">{eur(totalIngresos)}</Typography>
+            <Typography variant="h6" color="success.main">+{eur(totalIngresos)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Gastos (periodo)</Typography>
-            <Typography variant="h6">{eur(totalGastos)}</Typography>
+            <Typography variant="h6" color="error.main">-{eur(totalGastos)}</Typography>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="caption" color="text.secondary">Balance (periodo)</Typography>
-            <Typography variant="h6">{eur(balance)}</Typography>
+            <Typography variant="h6" color={balance >= 0 ? 'success.main' : 'error.main'}>{eur(balance)}</Typography>
           </Paper>
         </Grid>
       </Grid>
@@ -237,7 +237,7 @@ export default function Dashboard() {
         </div>
       </Paper>
 
-      {/* Pie Gastos — ANCHO COMPLETO y circular (no donut) */}
+      {/* Pie Gastos — ANCHO COMPLETO y circular */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Gastos por categoría</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
