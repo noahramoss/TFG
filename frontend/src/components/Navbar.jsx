@@ -47,7 +47,7 @@ export default function Navbar() {
             component={RouterLink}
             to="/estadisticas"
             color="primary"
-            variant={pathname.startsWith('/dashboard' || pathname.startsWith('/estadisticas')) ? 'contained' : 'text'}
+            variant={(pathname.startsWith('/estadisticas') || pathname.startsWith('/dashboard')) ? 'contained' : 'text'}
           >
             Estadísticas
           </Button>
