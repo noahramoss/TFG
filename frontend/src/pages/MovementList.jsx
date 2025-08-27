@@ -23,13 +23,23 @@ const ORDERING_OPTIONS = [
 
 const PAGESIZES = [5, 10, 20, 50];
 
+/** 👇 Helper para obtener la fecha de HOY en formato YYYY-MM-DD (lo que entiende <input type="date">) */
+const getToday = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export default function MovementList() {
   const [movements, setMovements] = useState([]);
   const [categories, setCategories] = useState([]);
 
   // creación
   const [categoria, setCategoria] = useState('');
-  const [fecha, setFecha] = useState('');
+  /** 👇 Inicializamos la fecha con HOY */
+  const [fecha, setFecha] = useState(getToday());
   const [cantidad, setCantidad] = useState('');
   const [descripcion, setDescripcion] = useState('');
 
@@ -166,7 +176,10 @@ export default function MovementList() {
       descripcion
     })
       .then(() => {
-        setCategoria(''); setFecha(''); setCantidad(''); setDescripcion('');
+        setCategoria('');
+        setFecha(getToday());      // 👈 tras crear, volvemos a hoy
+        setCantidad('');
+        setDescripcion('');
         fetchMovements();
         fetchResumen();
       })
@@ -348,7 +361,7 @@ export default function MovementList() {
             const cat = categories.find(c => c.id === mov.categoria);
             const sign = cat?.tipo === 'gasto' ? '-' : '+';
             const amountNum = Number(mov.cantidad);
-            const amount = Number.isNaN(amountNum) ? mov.cantidad : eur.format(amountNum);
+            const amount = Number.isNaN(amountNum) ? mov.cantidad : new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amountNum);
 
             return (
               <ListItem
