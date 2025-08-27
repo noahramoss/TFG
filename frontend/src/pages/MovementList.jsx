@@ -23,7 +23,6 @@ const ORDERING_OPTIONS = [
 
 const PAGESIZES = [5, 10, 20, 50];
 
-/** 👇 Helper para obtener la fecha de HOY en formato YYYY-MM-DD (lo que entiende <input type="date">) */
 const getToday = () => {
   const d = new Date();
   const y = d.getFullYear();
@@ -38,7 +37,6 @@ export default function MovementList() {
 
   // creación
   const [categoria, setCategoria] = useState('');
-  /** 👇 Inicializamos la fecha con HOY */
   const [fecha, setFecha] = useState(getToday());
   const [cantidad, setCantidad] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -177,7 +175,7 @@ export default function MovementList() {
     })
       .then(() => {
         setCategoria('');
-        setFecha(getToday());      // 👈 tras crear, volvemos a hoy
+        setFecha(getToday());      
         setCantidad('');
         setDescripcion('');
         fetchMovements();
