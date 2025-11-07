@@ -23,7 +23,7 @@ export default function Navbar() {
     <AppBar position="static" elevation={0} color="inherit" sx={{ borderBottom: 1, borderColor: 'divider' }}>
       <Toolbar sx={{ gap: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          TFG Finanzas
+          BalanC
         </Typography>
 
         <Stack direction="row" spacing={1}>

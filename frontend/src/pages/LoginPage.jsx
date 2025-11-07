@@ -68,7 +68,7 @@ export default function LoginPage() {
     <Container maxWidth="sm" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
       <Paper elevation={1} sx={{ p: 4, width: '100%' }}>
         <Typography variant="h4" sx={{ mb: 1, fontWeight: 700, textAlign: 'center' }}>
-          TFG Finanzas
+          BalanC
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
           Inicia sesión para continuar
