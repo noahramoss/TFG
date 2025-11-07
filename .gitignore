@@ -1,9 +1,45 @@
-venv/
-__pycache__/
-
+# --- SO/IDE ---
 .DS_Store
+.idea/
+.vscode/
 
-# Frontend (React)
+# --- Python/Django ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+pip-wheel-metadata/
+.venv/
+venv/
+.env
+.env.*
+*.log
+
+# DB locales (si usas SQLite en desarrollo; si usas Postgres no aplica)
+*.sqlite3
+
+# Archivos generados por Django 
+media/
+staticfiles/
+
+# Tests / linters / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Frontend (React) ---
 frontend/node_modules/
 frontend/build/
+frontend/dist/
 frontend/.env
+frontend/.env.*
+# Mantén los lock files en control de versiones
+
+# --- Otros ---
+*.bak
+*.tmp
+
