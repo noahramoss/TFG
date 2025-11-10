@@ -24,7 +24,7 @@ class IsAuthenticatedAndOwner(permissions.IsAuthenticated):
 class CategoriaViewSet(viewsets.ModelViewSet):
     serializer_class = CategoriaSerializer
     permission_classes = [IsAuthenticatedAndOwner]
-    pagination_class = None  # ← SIN paginación para categorías
+    pagination_class = None  
 
     def get_queryset(self):
         # Solo categorías del usuario logueado

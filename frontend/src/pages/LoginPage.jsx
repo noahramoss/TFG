@@ -126,7 +126,7 @@ export default function LoginPage() {
           </Stack>
         </Box>
 
-        {/* Enlace a registro como botón programático */}
+        {/* Enlace a registro */}
         <Typography variant="body2" sx={{ textAlign: 'center', mt: 2 }}>
           ¿No tienes cuenta?{' '}
           <Button variant="text" onClick={() => navigate('/registro')}>

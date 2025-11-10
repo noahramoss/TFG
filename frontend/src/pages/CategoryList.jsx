@@ -7,14 +7,13 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-// ---- NUEVO: helper para extraer mensajes útiles del backend (DRF) ----
 function getServerMessage(err, fallback = 'Ocurrió un error') {
   const data = err?.response?.data;
   if (!data) return fallback;
-  if (typeof data === 'string') return data;              // DRF a veces devuelve texto plano
-  if (typeof data.detail === 'string') return data.detail; // {"detail": "mensaje"}
-  if (Array.isArray(data.detail) && data.detail[0]) return data.detail[0]; // {"detail": ["mensaje"]}
-  // Errores por campo: {nombre: ["..."], ...} o non_field_errors
+  if (typeof data === 'string') return data;              
+  if (typeof data.detail === 'string') return data.detail; 
+  if (Array.isArray(data.detail) && data.detail[0]) return data.detail[0]; 
+
   const first = Object.values(data)
     .flat()
     .find((v) => typeof v === 'string');
@@ -24,8 +23,8 @@ function getServerMessage(err, fallback = 'Ocurrió un error') {
 export default function CategoryList() {
   const [categories, setCategories] = useState([]);
   const [nombre, setNombre] = useState('');
-  const [tipo, setTipo] = useState('ingreso'); // para crear
-  const [filtroTipo, setFiltroTipo] = useState(''); // '', '__all__', 'ingreso', 'gasto'
+  const [tipo, setTipo] = useState('ingreso'); 
+  const [filtroTipo, setFiltroTipo] = useState(''); 
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
@@ -55,7 +54,6 @@ export default function CategoryList() {
         fetchCategories();
       })
       .catch(err => {
-        // ← usa el mensaje del backend (p. ej. "Ya existe una categoría con ese nombre y tipo.")
         setError(getServerMessage(err, 'No se pudo crear la categoría'));
       });
   };
@@ -65,7 +63,6 @@ export default function CategoryList() {
     axios.delete(`/api/categorias/${id}/`)
       .then(() => { setInfo('Categoría eliminada'); fetchCategories(); })
       .catch(err => {
-        // ← usa el mensaje del backend (p. ej. "No se puede eliminar la categoría porque tiene N movimiento(s)…")
         setError(getServerMessage(err, 'No se pudo eliminar la categoría'));
       });
   };
@@ -133,7 +130,7 @@ export default function CategoryList() {
         </List>
       </Paper>
 
-      {/* Crear nueva */}
+      {/* Crear nueva categoría */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Nueva Categoría</Typography>
         <Stack component="form" direction={{ xs:'column', sm:'row' }} spacing={2} onSubmit={handleCreate}>

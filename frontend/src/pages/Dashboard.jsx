@@ -25,11 +25,11 @@ export default function Dashboard() {
   const [desde, setDesde] = useState(inicioAnio);
   const [hasta, setHasta] = useState(finAnio);
 
-  const [seriesMensual, setSeriesMensual] = useState([]);   // [{month:'YYYY-MM', ingresos, gastos, balance}]
+  const [seriesMensual, setSeriesMensual] = useState([]);   // [{mes:'YYYY-MM', ingresos, gastos, balance}]
   const [catsResumen, setCatsResumen]     = useState([]);    // [{categoria__nombre, categoria__tipo, total}]
   const [error, setError] = useState('');
 
-  // ===== Responsive helper para los pies =====
+  // Responsive helper para los pies 
   const [isSmall, setIsSmall] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 900 : true
   );
@@ -90,7 +90,7 @@ export default function Dashboard() {
     setDesde(ymd(first)); setHasta(ymd(new Date()));
   };
 
-  // ====== Gráfico de barras: datos y formato español en eje X ======
+  // Gráfico de barras
   const fmtMonthES = new Intl.DateTimeFormat('es-ES', { month: 'short', year: 'numeric' });
   const barData = seriesMensual.map((row) => {
     const [y, m] = row.month.split('-').map(Number);
@@ -98,7 +98,7 @@ export default function Dashboard() {
     return { ...row, monthLabel: fmtMonthES.format(d) };
   });
 
-  // ====== Quesitos por categoría ======
+  // Gráfico circular por categoría 
   const dataIng = catsResumen
     .filter(c => c['categoria__tipo'] === 'ingreso')
     .map(c => ({ name: c['categoria__nombre'], value: Number(c.total) }));
@@ -186,7 +186,7 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* Barras lado a lado con leyenda Ingresos — Gastos (ancho completo) */}
+      {/* Barras lado a lado con leyenda Ingresos — Gastos */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Ingresos vs Gastos por mes</Typography>
         <div style={{ width: '100%', height: 380 }}>
@@ -209,7 +209,7 @@ export default function Dashboard() {
         </div>
       </Paper>
 
-      {/* Pie Ingresos — ANCHO COMPLETO y circular (no donut) */}
+      {/* Pie Ingresos circular */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Ingresos por categoría</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -237,7 +237,7 @@ export default function Dashboard() {
         </div>
       </Paper>
 
-      {/* Pie Gastos — ANCHO COMPLETO y circular */}
+      {/* Pie Gastos circular */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" sx={{ mb: 1 }}>Gastos por categoría</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

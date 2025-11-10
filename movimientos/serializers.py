@@ -19,7 +19,6 @@ class CategoriaSerializer(serializers.ModelSerializer):
             if self.instance:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                # Mensaje claro para el formulario del frontend
                 raise serializers.ValidationError({'nombre': 'Ya existe una categoría con ese nombre y tipo.'})
         return attrs
 
